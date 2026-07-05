@@ -1,0 +1,25 @@
+venv/
+.idea/
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/
+
+# OS / editor junk
+.DS_Store
+.vscode/
+.idea/
+
+# Large / generated files (uncomment if you don't want to push raw data or model files)
+# delivery_data.csv
+*.pkl
+*.model
