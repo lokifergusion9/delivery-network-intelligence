@@ -2,6 +2,10 @@
 
 Graph-based ETA prediction and bottleneck analysis for a logistics delivery network. Instead of treating each delivery leg as an independent route, this project models the network as a directed graph — facilities as nodes, corridors as edges — and uses graph structure (centrality, connectivity) to dramatically improve ETA accuracy over a naive routing estimate (OSRM), while also pinpointing exactly which hubs are driving network-wide delay.
 
+### 🌐 [Live Demo](https://delivery-network-intelligence-bgrkkktakv7jqgvm7msawv.streamlit.app/)
+
+> Hosted on Streamlit Community Cloud's free tier — the app sleeps after a period of inactivity, so the first load after a while may take 30–60 seconds to wake up.
+
 ## The problem
 
 The routing engine (OSRM) assumes clean roads and shortest paths. Real operations don't work that way: across the analyzed trips, the typical leg takes about **2x longer than OSRM predicts**, and roughly 96% of corridors run more than 20% slower than promised. That breaks SLAs, hurts customer trust, and undermines capacity planning built on those estimates.
