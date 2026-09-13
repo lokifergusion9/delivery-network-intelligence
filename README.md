@@ -86,3 +86,6 @@ The dashboard includes:
 
 - `delivery_data.csv` is tracked in this repo; if you'd rather not version raw data, uncomment the relevant line in `.gitignore`.
 - The full node2vec embedding variant of the model lives in the notebook; `app.py` uses the lighter base + centrality feature set for fast, cache-friendly predictions in the dashboard.
+
+Lokesh Kumar
+IIT Roorkee
