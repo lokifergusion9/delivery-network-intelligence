@@ -88,4 +88,4 @@ The dashboard includes:
 - The full node2vec embedding variant of the model lives in the notebook; `app.py` uses the lighter base + centrality feature set for fast, cache-friendly predictions in the dashboard.
 
 Lokesh Kumar
-IIT Roorkee
+(IIT Roorkee)
