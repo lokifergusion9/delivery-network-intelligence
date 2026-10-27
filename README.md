@@ -90,4 +90,3 @@ The dashboard includes:
 - The full node2vec embedding variant of the model lives in the notebook; `app.py` uses the lighter base + centrality feature set for fast, cache-friendly predictions in the dashboard, so its headline accuracy is a little lower (~42% within 15% vs ~46% in the notebook).
 
 Lokesh Kumar
-(IIT Guwahati)
