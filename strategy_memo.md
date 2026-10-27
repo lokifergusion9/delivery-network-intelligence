@@ -32,11 +32,12 @@ route-type inputs. Same data, same test set, measured head-to-head:
 |---|---|---|
 | OSRM (today) | **~5%** of legs | 107 |
 | ML baseline (no graph) | ~35% of legs | 42 |
-| **Graph-enhanced model** | **~48% of legs** | **32** |
+| **Graph-enhanced model** | **~46% of legs** | **32** |
 
-The graph features alone cut average error by **~24%** and **nearly tripled** the share of legs
-predicted within 15% of reality versus today's OSRM. This is a measured result on held-out
-trips, not a projection. **Operational meaning:** planners get an ETA they can actually staff
+Versus an ML model without the graph, the graph features alone cut average error by **~24%**
+and add **~11 percentage points** of legs predicted within 15% of reality — roughly **10x** the
+share today's OSRM achieves. This is a measured result on held-out trips, not a projection, and
+the graph used for prediction is built from training trips only. **Operational meaning:** planners get an ETA they can actually staff
 and promise against on roughly half of all legs, instead of one in twenty.
 
 ---
@@ -68,9 +69,11 @@ return for three targeted interventions.
    single-point ripple risk more than raw capacity would.
 3. **Kolkata_Dankuni_HB — facility upgrade + peak-hour shift.** Combine added capacity with
    moving flexible volume out of the worst congestion windows.
-4. **Route-type shift (network-wide).** Carting carries a higher delay ratio and only wins on
-   short feeder legs. **Move medium/long legs out of high-centrality hubs to FTL**, where the
-   time and SLA gains justify the truck; keep Carting for short, low-criticality feeders.
+4. **Route-type shift (pilot first).** Across the network, Carting runs a higher median delay
+   ratio than FTL (~2.15x vs ~1.93x). On the few corridors served by both modes the picture is
+   mixed (FTL is faster on about half), so treat this as a hypothesis to test: **pilot moving
+   medium/long legs out of high-centrality hubs to FTL**, and keep Carting for short,
+   low-criticality feeders.
 
 ---
 
@@ -83,7 +86,7 @@ Modelling a facility upgrade at the **top 3 hubs** as removing ~60% of their exc
 - On a revenue-at-risk proxy of ~₹3.0M tied to chronically-late shipments in this sample,
   roughly **₹0.13M recovered** — and that scales with the full shipment base and a higher,
   realistic per-shipment SLA-penalty figure.
-- Better ETAs everywhere: **~48% of legs within 15% of actual**, versus ~5% today, sharpening
+- Better ETAs everywhere: **~46% of legs within 15% of actual**, versus ~5% today, sharpening
   every downstream capacity and staffing decision.
 
 ---

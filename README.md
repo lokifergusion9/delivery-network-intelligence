@@ -24,9 +24,9 @@ The routing engine (OSRM) assumes clean roads and shortest paths. Real operation
 |---|---|---|
 | OSRM (naive) | ~5% of legs | 107 |
 | ML baseline (no graph) | ~35% of legs | 42 |
-| **Graph-enhanced model** | **~48% of legs** | **32** |
+| **Graph-enhanced model** | **~46% of legs** | **32** |
 
-Graph features alone cut average error by ~24% and nearly triple the share of legs predicted within 15% of reality, versus OSRM.
+Versus the graph-free ML baseline, graph features alone cut average error by ~24% and add ~11 percentage points of legs predicted within 15% of reality. Versus OSRM, that is roughly 10x as many legs within 15%. The graph features used by the model are built from training legs only, so the lift is not driven by test-set leakage.
 
 See [`strategy_memo.md`](strategy_memo.md) for the full write-up, including the top 5 bottleneck hubs, recommended interventions, and quantified business impact.
 
@@ -44,13 +44,15 @@ See [`strategy_memo.md`](strategy_memo.md) for the full write-up, including the 
 
 ### Requirements
 
-- Python 3.9+
+- Python 3.10–3.12 (tested on 3.10). Python 3.13+ is not supported because `numpy<2.0` has no wheels for it.
 
 ### Installation
 
 ```bash
 git clone https://github.com/lokifergusion9/delivery-network-intelligence.git
 cd delivery-network-intelligence
+python -m venv .venv                # on Windows with several Pythons: py -3.10 -m venv .venv
+source .venv/bin/activate           # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
@@ -80,12 +82,12 @@ The dashboard includes:
 3. A directed graph is built from corridors, weighted by delay ratio.
 4. Betweenness centrality, degree, and clustering are computed per facility node.
 5. A 0–100 risk score blends realized breach (70%) with structural centrality (30%).
-6. A LightGBM regressor is trained twice — once on base route features only, once with graph features added — to isolate the lift from network structure.
+6. A LightGBM regressor is trained twice — once on base route features only, once with graph features added — to isolate the lift from network structure. The graph features for the model come from a second graph built from training legs only; facilities seen only in the test split get zero-valued features.
 
 ## Notes
 
 - `delivery_data.csv` is tracked in this repo; if you'd rather not version raw data, uncomment the relevant line in `.gitignore`.
-- The full node2vec embedding variant of the model lives in the notebook; `app.py` uses the lighter base + centrality feature set for fast, cache-friendly predictions in the dashboard.
+- The full node2vec embedding variant of the model lives in the notebook; `app.py` uses the lighter base + centrality feature set for fast, cache-friendly predictions in the dashboard, so its headline accuracy is a little lower (~42% within 15% vs ~46% in the notebook).
 
 Lokesh Kumar
-(IIT Roorkee)
+(IIT Guwahati)

@@ -99,7 +99,20 @@ def build_graph_model(_od, _corr):
     ndf["risk"] = (100 * (0.7 * b + 0.3 * c)).round(1)
 
     # graph-enhanced ETA model (base + centrality features — fast, no embeddings at predict time)
-    gmap = ndf.set_index("node")
+    # features come from a graph of TRAINING legs only, so test-set delay never leaks in
+    tr = (od.data == "training").values
+    te = (od.data == "test").values
+    corr_tr = (od[tr].groupby(["source_center", "destination_center"])
+                 .delay_ratio.median().reset_index(name="med_ratio"))
+    G_tr = nx.DiGraph()
+    for r in corr_tr.itertuples(index=False):
+        G_tr.add_edge(r.source_center, r.destination_center, weight=r.med_ratio)
+    btw_tr = nx.betweenness_centrality(G_tr, weight="weight",
+                                       k=min(400, G_tr.number_of_nodes()), seed=RND)
+    gmap = pd.DataFrame({"btw": btw_tr,
+                         "in_deg": dict(G_tr.in_degree()),
+                         "out_deg": dict(G_tr.out_degree()),
+                         "clus": nx.clustering(G_tr.to_undirected())})
     od = od.copy()
     od["rt"] = (od.route_type == "FTL").astype(int)
     for col in ["btw", "in_deg", "out_deg", "clus"]:
@@ -109,8 +122,6 @@ def build_graph_model(_od, _corr):
             "rt", "hour", "weekday", "n_segments"]
     gfeat = base + ["src_btw", "src_in_deg", "src_out_deg", "src_clus",
                     "dst_btw", "dst_in_deg", "dst_out_deg", "dst_clus"]
-    tr = (od.data == "training").values
-    te = (od.data == "test").values
     y = od.actual_time.values
 
     def fit(feats):
@@ -133,14 +144,14 @@ def build_graph_model(_od, _corr):
     H = nx.from_pandas_edgelist(top, "source_center", "destination_center",
                                 create_using=nx.DiGraph())
     pos = nx.spring_layout(H, k=0.4, seed=RND, iterations=50)
-    return ndf, m_graph, gfeat, metrics, pos
+    return ndf, gmap, m_graph, gfeat, metrics, pos
 
 
 # --------------------------------------------------------------------------- #
 #  Load
 # --------------------------------------------------------------------------- #
 od, corr, name_map = load_pipeline()
-ndf, model, gfeat, metrics, pos = build_graph_model(od, corr)
+ndf, gmap_tr, model, gfeat, metrics, pos = build_graph_model(od, corr)
 
 st.title("🚚 Delhivery Network Intelligence")
 st.caption("Live delay-risk scores across the logistics graph — facilities as nodes, "
@@ -265,7 +276,7 @@ with tab_eta:
     st.subheader("Graph-enhanced ETA predictor")
     st.caption("Predicts actual leg time from route inputs + the source/destination "
                "facilities' graph position. Compare against the naive OSRM estimate.")
-    gmap = ndf.set_index("node")
+    gmap = gmap_tr
     opts = ndf.sort_values("risk", ascending=False).node.tolist()
     c1, c2 = st.columns(2)
     src = c1.selectbox("Source facility", opts,
