@@ -1,92 +1,201 @@
+<div align="center">
+
 # 🚚 Delivery Network Intelligence
 
-Graph-based ETA prediction and bottleneck analysis for a logistics delivery network. Instead of treating each delivery leg as an independent route, this project models the network as a directed graph — facilities as nodes, corridors as edges — and uses graph structure (centrality, connectivity) to dramatically improve ETA accuracy over a naive routing estimate (OSRM), while also pinpointing exactly which hubs are driving network-wide delay.
+### Graph-based ETA prediction & bottleneck detection for a national logistics network
 
-### 🌐 [Live Demo](https://delivery-network-intelligence-bgrkkktakv7jqgvm7msawv.streamlit.app/)
+**Treat the network as a graph, not a list of routes: ETAs land within 15% of reality ~10x more often than the routing engine.**
 
-> Hosted on Streamlit Community Cloud's free tier — the app sleeps after a period of inactivity, so the first load after a while may take 30–60 seconds to wake up.
+[![Live Demo](https://img.shields.io/badge/▶_Live_Demo-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://delivery-network-intelligence-bgrkkktakv7jqgvm7msawv.streamlit.app/)
+[![Strategy Memo](https://img.shields.io/badge/📄_Strategy_Memo-Read-0A66C2?style=for-the-badge)](strategy_memo.md)
+[![Notebook](https://img.shields.io/badge/📓_Notebook-Jupyter-F37626?style=for-the-badge&logo=jupyter&logoColor=white)](delhivery_graph_eta.ipynb)
 
-## The problem
+![Python](https://img.shields.io/badge/Python-3.10–3.12-3776AB?logo=python&logoColor=white)
+![NetworkX](https://img.shields.io/badge/NetworkX-graph_analytics-2C7BB6)
+![LightGBM](https://img.shields.io/badge/LightGBM-gradient_boosting-9ACD32)
+![node2vec](https://img.shields.io/badge/node2vec-embeddings-8A2BE2)
+![Plotly](https://img.shields.io/badge/Plotly-interactive_viz-3F4F75?logo=plotly&logoColor=white)
 
-The routing engine (OSRM) assumes clean roads and shortest paths. Real operations don't work that way: across the analyzed trips, the typical leg takes about **2x longer than OSRM predicts**, and roughly 96% of corridors run more than 20% slower than promised. That breaks SLAs, hurts customer trust, and undermines capacity planning built on those estimates.
+</div>
 
-## What this does
+<p align="center">
+  <img src="docs/network_map.png" alt="Network Map tab: corridor graph with hubs sized and colored by delay-risk score" width="900">
+  <br><sub><i>Network Map: 1,657 facilities as nodes; the biggest, darkest nodes are the hubs driving network-wide delay.</i></sub>
+</p>
 
-1. **Builds a corridor graph** from raw shipment scan data — source/destination facilities as nodes, aggregated corridor stats (volume, delay ratio, SLA-breach contribution) as edges.
-2. **Computes structural features** per facility: betweenness centrality, in/out degree, clustering coefficient.
-3. **Scores delay risk per hub** (0–100) by blending realized SLA-breach volume with structural centrality.
-4. **Trains a graph-enhanced LightGBM ETA model** (base route features + facility graph features) and compares it head-to-head against OSRM and a graph-free ML baseline.
-5. **Surfaces actionable results**: bottleneck hub rankings, corridor-level drill-downs, and an interactive ETA predictor.
+---
 
-### Results (held-out test set)
+## ⚡ TL;DR
 
-| ETA method | Within 15% of actual | MAE |
-|---|---|---|
-| OSRM (naive) | ~5% of legs | 107 |
-| ML baseline (no graph) | ~35% of legs | 42 |
+| | |
+|---|---|
+| 🐢 **The problem** | The routing engine (OSRM) underestimates leg time by **~2x**. Only **~5%** of its ETAs land within 15% of actual. |
+| 🕸️ **The approach** | Model **1,657 facilities** and **2,783 corridors** as a directed graph. Feed each hub's structural role (centrality, degree, clustering, node2vec embeddings) into a LightGBM ETA model. |
+| 🎯 **The result** | **~46%** of legs predicted within 15% of actual, MAE down from **107 → 32 minutes**, measured on a **future week the model never saw**. |
+| 🏭 **The action** | The **top 3 bottleneck hubs** account for ~7% of all network SLA breach. Fixing them is worth a **~4% cut in network-wide late time**. |
+
+---
+
+## 🐢 The problem
+
+OSRM assumes clean roads and shortest paths. Real operations don't work that way: across **14,817 trips**, the typical leg takes about **2x longer than OSRM predicts**, and **~96% of corridors** run more than 20% slower than promised.
+
+That breaks SLAs, erodes customer trust, and undermines every capacity and staffing plan built on those estimates. Treating each leg as an isolated route misses the real cause: **delay propagates through hubs**. A congested, highly central facility slows everything that passes through it.
+
+---
+
+## 📊 Results
+
+Evaluated on a **time-based holdout**: trained on trips from **Sep 12–26, 2018** and tested on **Sep 27 – Oct 3, 2018**. No trip appears in both splits.
+
+| ETA method | Within 15% of actual | MAE (minutes) |
+|---|:---:|:---:|
+| OSRM (naive routing) | ~5% of legs | 107 |
+| ML baseline (no graph features) | ~35% of legs | 42 |
 | **Graph-enhanced model** | **~46% of legs** | **32** |
 
-Versus the graph-free ML baseline, graph features alone cut average error by ~24% and add ~11 percentage points of legs predicted within 15% of reality. Versus OSRM, that is roughly 10x as many legs within 15%. The graph features used by the model are built from training legs only, so the lift is not driven by test-set leakage.
+```
+Within 15% of actual
+OSRM            █▌                          ~5%
+ML baseline     ██████████▌                 ~35%
+Graph-enhanced  █████████████▊              ~46%   ← ~10x OSRM
+```
 
-See [`strategy_memo.md`](strategy_memo.md) for the full write-up, including the top 5 bottleneck hubs, recommended interventions, and quantified business impact.
+- **Graph features alone** cut MAE by **~24%** and add **~11 percentage points** of accurate legs over the same model without them.
+- **No leakage:** the graph used for model features is built from **training legs only**. Facilities seen only in the test week get zero-valued graph features.
 
-## Repo contents
+---
 
-| File | Description |
+## 🏭 Top bottleneck hubs
+
+Facilities ranked by **SLA-breach contribution**, meaning the late time each one generates (volume × how badly its corridors overshoot).
+
+| # | Hub | Why it matters | Recommended fix |
+|:-:|---|---|---|
+| 1 | **Bhiwandi_Mankoli_HB** (MH) | Highest realized late time in the network | Sortation/dock capacity to cut dwell |
+| 2 | **Gurgaon_Bilaspur_HB** (HR) | Highest betweenness, so delays ripple network-wide | Parallel corridor / load balancing |
+| 3 | **Kolkata_Dankuni_HB** (WB) | Major eastern chokepoint, chronic overshoot | Capacity + peak-hour volume shift |
+| 4 | **Kanpur_Central_H** (UP) | High-volume northern transfer point | Monitor |
+| 5 | **Bangalore_Nelamangala_H** (KA) | Central southern hub, high betweenness and degree | Monitor |
+
+💰 Removing ~60% of excess delay at the top 3 hubs alone cuts **~4% of network-wide late delivery time**. Full reasoning, assumptions and the FTL-vs-Carting pilot recommendation are in the **[strategy memo](strategy_memo.md)**.
+
+---
+
+## 🧠 How it works
+
+```mermaid
+flowchart LR
+    A[("📦 144,867<br/>segment scans")] --> B["🔗 OD legs<br/>per trip"]
+    B --> C["🛣️ Corridors<br/>volume · delay ratio · breach"]
+    C --> D["🕸️ Directed graph<br/>1,657 hubs · 2,783 edges"]
+    D --> E["📐 Graph features<br/>betweenness · degree<br/>clustering · node2vec"]
+    D --> F["🚨 Hub risk score<br/>0–100"]
+    E --> G["🌲 LightGBM<br/>ETA model"]
+    B --> G
+    G --> H["🎯 ETA prediction"]
+    F --> I["🏭 Bottleneck ranking"]
+```
+
+1. **Segments → legs.** Raw segment-level scans are aggregated into origin–destination (OD) legs per trip. Cumulative fields take the final value and per-segment fields are summed.
+2. **Legs → corridors.** Legs are grouped by `source → destination` with trip volume, median delay ratio (`actual / OSRM`), and an SLA-breach score of `trips × max(median_delay_ratio − 1, 0)`.
+3. **Corridors → graph.** A directed graph is built with corridors as edges, weighted by delay ratio.
+4. **Structural features.** Betweenness centrality, in/out degree and clustering coefficient are computed per facility, plus node2vec embeddings in the notebook.
+5. **Risk scoring.** Each hub gets a 0–100 score: **70% realized breach + 30% betweenness centrality**. The weighting leans on observed delay and keeps a structural term so that central hubs, where a slowdown would spread furthest, are flagged even before they show up in breach volume. It's a tunable heuristic, not a fitted parameter.
+6. **ETA model.** LightGBM is trained twice, once on base route features and once with graph features added, to isolate the lift that comes from network structure.
+
+---
+
+## 🖥️ Interactive dashboard
+
+**[▶ Open the live app](https://delivery-network-intelligence-bgrkkktakv7jqgvm7msawv.streamlit.app/)**
+
+> ⏳ It's hosted on Streamlit Community Cloud's free tier, which sleeps when idle. The first load may take 30–60 seconds.
+
+| Tab | What you can do |
 |---|---|
-| `delhivery_graph_eta.ipynb` | Main analysis notebook: data prep, graph construction, centrality/risk scoring, node2vec embeddings, model training and evaluation. |
-| `app.py` | Interactive Streamlit dashboard driven by the same pipeline as the notebook. |
-| `delivery_data.csv` | Raw shipment/segment-level delivery data (Delhivery). |
-| `strategy_memo.md` | Business-facing summary of findings and recommendations. |
-| `requirements.txt` | Python dependencies. |
+| 🗺️ **Network Map** | Explore the corridor graph. Node size and color show delay-risk score. |
+| 🏭 **Hub Risk** | Rank facilities by risk and drill into any hub's corridors. |
+| 🛣️ **Corridor Risk** | Find the corridors contributing the most SLA breach. |
+| 🔮 **ETA Predictor** | Pick a source and destination, get a predicted leg time, and compare it with OSRM. |
+| 📊 **Model** | Compare the baseline and graph-enhanced models on held-out data. |
 
-## Getting started
+<table>
+  <tr>
+    <td width="50%"><img src="docs/hub_risk.png" alt="Hub Risk tab: facilities ranked by delay-risk score"><p align="center"><b>🏭 Hub Risk</b></p></td>
+    <td width="50%"><img src="docs/eta_predictor.png" alt="ETA Predictor tab: OSRM 60 min vs graph-enhanced 133 min"><p align="center"><b>🔮 ETA Predictor</b></p></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/model.png" alt="Model tab: baseline vs graph-enhanced accuracy and MAE"><p align="center"><b>📊 Model comparison</b> (dashboard variant without node2vec)</p></td>
+  </tr>
+</table>
 
-### Requirements
+---
 
-- Python 3.10–3.12 (tested on 3.10). Python 3.13+ is not supported because `numpy<2.0` has no wheels for it.
+## 🚀 Getting started
 
-### Installation
+**Requirements:** Python **3.10–3.12** (tested on 3.10). Python 3.13+ isn't supported because `numpy<2.0` has no wheels for it.
 
 ```bash
 git clone https://github.com/lokifergusion9/delivery-network-intelligence.git
 cd delivery-network-intelligence
-python -m venv .venv                # on Windows with several Pythons: py -3.10 -m venv .venv
+
+python -m venv .venv                # Windows with several Pythons: py -3.10 -m venv .venv
 source .venv/bin/activate           # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Run the notebook
-
 ```bash
-jupyter notebook delhivery_graph_eta.ipynb
+jupyter notebook delhivery_graph_eta.ipynb   # full analysis
+streamlit run app.py                         # dashboard
 ```
 
-### Run the dashboard
+---
 
-```bash
-streamlit run app.py
+## 📁 Repository structure
+
+```
+delivery-network-intelligence/
+├── delhivery_graph_eta.ipynb   # Full analysis: prep → graph → risk → node2vec → models → impact
+├── app.py                      # Streamlit dashboard (same pipeline as the notebook)
+├── strategy_memo.md            # 2-page business memo for network operations leadership
+├── delivery_data.csv           # Raw segment-level shipment data (~55 MB)
+├── docs/                       # Dashboard screenshots used in this README
+└── requirements.txt
 ```
 
-The dashboard includes:
-- **🗺️ Network Map** — corridor graph visualization, node size/color = delay-risk score
-- **🏭 Hub Risk** — facilities ranked by delay-risk score, with per-hub corridor drill-down
-- **🛣️ Corridor Risk** — corridors ranked by SLA-breach contribution
-- **🔮 ETA Predictor** — predict actual leg time for a chosen source/destination and compare against the naive OSRM estimate
-- **📊 Model** — baseline vs. graph-enhanced model comparison on held-out data
+---
 
-## How it works (pipeline summary)
+## 📦 Data
 
-1. Raw segment-level scans are aggregated into origin-destination (OD) legs per trip.
-2. OD legs are aggregated further into corridors (source → destination pairs) with trip volume, median delay ratio, and an SLA-breach score (`trips × max(median_delay_ratio − 1, 0)`).
-3. A directed graph is built from corridors, weighted by delay ratio.
-4. Betweenness centrality, degree, and clustering are computed per facility node.
-5. A 0–100 risk score blends realized breach (70%) with structural centrality (30%).
-6. A LightGBM regressor is trained twice — once on base route features only, once with graph features added — to isolate the lift from network structure. The graph features for the model come from a second graph built from training legs only; facilities seen only in the test split get zero-valued features.
+The public **[Delhivery logistics dataset](https://www.kaggle.com/datasets/nayanack/delhivery)** (Kaggle) contains 144,867 segment-level scan records covering 14,817 trips between 1,657 facilities across India in Sep–Oct 2018. It ships with a `data` column marking a chronological training/test split, which this project uses as is. Times are in minutes. The dataset is released under **CC0: Public Domain**.
 
-## Notes
+---
 
-- `delivery_data.csv` is tracked in this repo; if you'd rather not version raw data, uncomment the relevant line in `.gitignore`.
-- The full node2vec embedding variant of the model lives in the notebook; `app.py` uses the lighter base + centrality feature set for fast, cache-friendly predictions in the dashboard, so its headline accuracy is a little lower (~42% within 15% vs ~46% in the notebook).
+## 📝 Notes & limitations
 
-Lokesh Kumar
+- **Notebook vs. dashboard:** the notebook's best model includes node2vec embeddings (~46% within 15%). `app.py` drops them for fast, cache-friendly predictions, so its headline accuracy is a little lower (~42%).
+- **Cold-start hubs:** facilities that never appear in training get zero graph features, so predictions for brand-new hubs fall back toward the base model.
+- **Impact figures** in the memo use explicit, adjustable assumptions (e.g. 60% delay removal), documented in the notebook.
+- **Large file:** `delivery_data.csv` is ~55 MB and is tracked directly in git. To stop versioning it, uncomment the line in `.gitignore`.
+
+---
+
+## 🔭 Future work
+
+- Temporal graphs: hub congestion by hour of day and day of week
+- Graph neural networks (GraphSAGE / GAT) in place of hand-crafted centrality and node2vec
+- Prediction intervals (quantile LightGBM) so planners get ETA ranges, not just point estimates
+- Live re-scoring of hub risk as new scans arrive
+
+---
+
+<div align="center">
+
+**Lokesh Kumar** 
+
+[![GitHub](https://img.shields.io/badge/GitHub-lokifergusion9-181717?logo=github)](https://github.com/lokifergusion9)
+
+⭐ If you found this useful, consider starring the repo!
+
+</div>
