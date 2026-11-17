@@ -6,7 +6,7 @@
 
 **Treat the network as a graph, not a list of routes: ETAs land within 15% of reality ~10x more often than the routing engine.**
 
-[![Live Demo](https://img.shields.io/badge/▶_Live_Demo-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://delivery-network-intelligence-bgrkkktakv7jqgvm7msawv.streamlit.app/)
+[![Live Demo](https://img.shields.io/badge/▶_Live_Demo-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://delivery-network-intelligence-sjdj5m77kgdkvbmgqhy9yo.streamlit.app/)
 [![Strategy Memo](https://img.shields.io/badge/📄_Strategy_Memo-Read-0A66C2?style=for-the-badge)](strategy_memo.md)
 [![Notebook](https://img.shields.io/badge/📓_Notebook-Jupyter-F37626?style=for-the-badge&logo=jupyter&logoColor=white)](delhivery_graph_eta.ipynb)
 
@@ -108,7 +108,7 @@ flowchart LR
 
 ## 🖥️ Interactive dashboard
 
-**[▶ Open the live app](https://delivery-network-intelligence-bgrkkktakv7jqgvm7msawv.streamlit.app/)**
+**[▶ Open the live app](https://delivery-network-intelligence-sjdj5m77kgdkvbmgqhy9yo.streamlit.app/)**
 
 > ⏳ It's hosted on Streamlit Community Cloud's free tier, which sleeps when idle. The first load may take 30–60 seconds.
 
