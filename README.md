@@ -134,7 +134,7 @@ flowchart LR
 
 ## 🚀 Getting started
 
-**Requirements:** Python **3.10–3.12** (tested on 3.10). Python 3.13+ isn't supported because `numpy<2.0` has no wheels for it.
+**Requirements:** Python **3.10+** (tested on 3.10).
 
 ```bash
 git clone https://github.com/lokifergusion9/delivery-network-intelligence.git
